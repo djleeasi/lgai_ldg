@@ -1,3 +1,4 @@
-result/*.csv
+src/test.ipynb
 result/*.csv
 *.pt
+*.pyc
