@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader
 import pandas as pd
 from os.path import exists
 #-------------------
-from .model import TheModel
-from .mydataset import TestDataset
+from src.model import TheModel
+from src.mydataset import TestDataset
 from src.hy_params import datahyper, modelhyper
 #-------------------
 
@@ -50,3 +50,12 @@ def execute_getresult():
     sub_csv.to_csv(dataparams.DATA_DIR_RESULT + modelparams.MODELNAME + '.csv',index=False)
 
 #----------------------------
+if __name__ == '__main__':
+    # parser = argparse.ArgumentParser(description='LGAI LDG version 3-train')
+    # parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training (default: 64)")
+    # parser.add_argument('--learning_rate', type=float, default=4e-7, help="Learning rate (default: 0.001)")
+    # parser.add_argument('--num_epochs', type=int, default=5, help="Number of epochs to train for (default: 5)")
+    # parser.add_argument('--weight_decay', type=float, default=4e-5, help="weight decay for (default: 0.0004)")
+    # args = parser.parse_args()
+    execute_getresult()
+    # instantiate model
