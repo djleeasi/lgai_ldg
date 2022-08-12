@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 from os.path import exists
 from torch.utils.data import DataLoader
+import pickle
 
 
 FOLDER_DIR = './parameters/'
@@ -70,7 +71,8 @@ def train(trainparams, data_loader, test_loader, model):
         if model.minloss > validation_loss:
             print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
             model.minloss = validation_loss
-            torch.save(model.state_dict(), PARAM_DIR)
+            with open(PARAM_DIR,'wb') as f:
+                pickle.dump(model.state_dict(),f)
             
 """
 if __name__ == '__main__':
@@ -82,12 +84,16 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=4e-5, help="weight decay for (default: 0.0004)")
     args = parser.parse_args()
     # instantiate model
+    
 """
 
 def execute_train():
     model = TheModel(modelparams)
     if exists(PARAM_DIR):
-        model.load_state_dict(torch.load(PARAM_DIR))
+        with open(PARAM_DIR,'rb') as f:
+            params = pickle.load(f)
+        model.load_state_dict(params)
+        del params
         print(PARAM_DIR + " exists")
     else: print(PARAM_DIR + "does not exists")
     model = model.to(model.device)

@@ -1,5 +1,6 @@
 #model specific imports
 import torch
+import numpy 
 #----------
 class modelhyper():
     def __init__(self):
@@ -10,6 +11,10 @@ class modelhyper():
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.DROPP = 0.5
         self.OUTPUT_CLASS = 14
+        self.MODEL_DATA = {#will be replaced with saved data
+            'minloss':numpy.Inf,
+        }
+
 
 class datahyper():
     def __init__(self):
@@ -27,5 +32,5 @@ class trainhyper():
     def __init__(self):
         self.LR = 4e-3
         self.WD = 0
-        self.NUM_EPOCHES = 200
+        self.NUM_EPOCHES = 50
         self.BATCH_SIZE = 2048
