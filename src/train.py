@@ -2,13 +2,17 @@
 from .model import TheModel
 from .mydataset import ProcessDataset, TestDataset
 from .hy_params import modelhyper, datahyper, trainhyper
+from .modelload import loadmodel
+from .customloss import customloss
 #import packages
+
 import argparse
 import torch
 import numpy as np
 from tqdm import tqdm
 from os.path import exists
 from torch.utils.data import DataLoader
+import pickle
 
 
 FOLDER_DIR = './parameters/'
@@ -18,20 +22,16 @@ trainparams = trainhyper()
 
 PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + '.pt'
 
-def validate(test_loader, model):
-    criterion = torch.nn.MSELoss()
+def validate(test_loader, model, criterion):
     test_losses = []
     total=0
     model.eval()
     test_loss = 0
-    mult= test_loader.dataset.minmax[3]-test_loader.dataset.minmax[2]
-    mult = torch.tensor(mult).to(device = model.device)
-    add = torch.tensor(test_loader.dataset.minmax[2]).to(device = model.device)
     with torch.no_grad():
         for i, (inputdata, target) in enumerate(tqdm(test_loader)):
             target = target.to(device=model.device) 
             output = model(inputdata).to(device=model.device)
-            loss = criterion((output*mult)+add, (target*mult)+add)
+            loss = criterion(output,target)
             test_losses.append(loss.item())
             total += target.size(0)
         test_loss = np.mean(test_losses)
@@ -41,8 +41,11 @@ def validate(test_loader, model):
 
 
 def train(trainparams, data_loader, test_loader, model):
+    criterion_validation = customloss(test_loader.dataset.Ys)
+
     NUM_EPOCHES = trainparams.NUM_EPOCHES
-    criterion = torch.nn.MSELoss()
+    criterion = customloss(data_loader.dataset.Ys)
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
     #optimizer = torch.optim.SGD(model.parameters(), lr=LR)
     #optimizer = torch.optim.Adam(model.parameters(), lr=trainparams.LR)
@@ -62,15 +65,17 @@ def train(trainparams, data_loader, test_loader, model):
             train_losses.append(loss.item())
             total += target.size(0)
         epoch_train_loss = np.mean(train_losses)
-        validation_loss = validate(test_loader,model)
+        validation_loss = validate(test_loader,model,criterion_validation)
         print(f'Epoch {epoch+1}') 
         print(f'train_loss : {epoch_train_loss}, validation_loss(unnormalized): {validation_loss}')
 
         # Save Model
-        if model.minloss > validation_loss:
-            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
-            model.minloss = validation_loss
-            torch.save(model.state_dict(), PARAM_DIR)
+        if model.modeldata['minloss'] > validation_loss:
+            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.modeldata['minloss'], validation_loss))
+            model.modeldata['minloss'] =  validation_loss
+            model.modeldata['bestparam'] = model.state_dict()#potential pointer threat. but it's not an issue because the parameter is saved as a file rightafetr
+            with open(PARAM_DIR,'wb') as f:
+                pickle.dump(model.modeldata,f)
             
 """
 if __name__ == '__main__':
@@ -82,16 +87,13 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=4e-5, help="weight decay for (default: 0.0004)")
     args = parser.parse_args()
     # instantiate model
+    
 """
 
 def execute_train():
     model = TheModel(modelparams)
-    if exists(PARAM_DIR):
-        model.load_state_dict(torch.load(PARAM_DIR))
-        print(PARAM_DIR + " exists")
-    else: print(PARAM_DIR + "does not exists")
+    loadmodel(model,PARAM_DIR)
     model = model.to(model.device)
-
     train_loader = DataLoader(ProcessDataset(dataparams,'train'), trainparams.BATCH_SIZE, shuffle = True)
     test_loader = DataLoader(ProcessDataset(dataparams,'validation'), 3000, shuffle = True)
     # Training The Model

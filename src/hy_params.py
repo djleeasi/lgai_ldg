@@ -1,15 +1,22 @@
 #model specific imports
+#모델 설명: master에서 modeldata save와, daycon에 맞는 custom loss 적용
 import torch
+import numpy 
 #----------
 class modelhyper():
     def __init__(self):
         self.MODELNAME = "LDGLSTM_4"
-        self.MODELVERSION = '1.1'
+        self.MODELVERSION = '1.1'#deprecated
         self.HIDDEN_SIZE = 512
         self.VECTOR_SIZE = 7
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.DROPP = 0.5
         self.OUTPUT_CLASS = 14
+        self.MODELDATA = {#will be replaced with saved data
+            'minloss':numpy.Inf,
+            'bestparam':'Not Yet',
+        }
+
 
 class datahyper():
     def __init__(self):

@@ -6,7 +6,8 @@ from os.path import exists
 #-------------------
 from .model import TheModel
 from .mydataset import TestDataset
-from src.hy_params import datahyper, modelhyper
+from .hy_params import datahyper, modelhyper
+from .modelload import loadmodel
 #-------------------
 
 modelparams = modelhyper()
@@ -35,9 +36,8 @@ def final_test(test_loader, model):
 def execute_getresult():
     model = TheModel(modelparams)
     test_loader = DataLoader(TestDataset(dataparams), 3000, shuffle = False)
-    if exists(PARAM_DIR):
-        model.load_state_dict(torch.load(PARAM_DIR))
-        print(PARAM_DIR + " exists")
+    if loadmodel(model,PARAM_DIR) == True:
+        print("loaded modrl for result generation")
     else:
         raise Exception("parameter file does not exist")
     model = model.to(model.device)
