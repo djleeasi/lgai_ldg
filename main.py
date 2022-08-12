@@ -1,4 +1,4 @@
-from src.model import TheModel
+from src.model import *
 from src.mydataset import ProcessDataset, TestDataset
 from src.hy_params import modelhyper, datahyper, trainhyper
 #import packages
@@ -11,8 +11,7 @@ import numpy as np
 from tqdm import tqdm
 from os.path import exists
 from torch.utils.data import DataLoader
-
-
+import ipdb
 
 def main():
     FOLDER_DIR = './parameters/'
@@ -20,7 +19,6 @@ def main():
     dataparams = datahyper()
     trainparams = trainhyper()
     foldNum = modelparams.KFOLD_NUM
-
     with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
         x_data, y_data = pickle.load(f)
         
@@ -35,7 +33,7 @@ def main():
         model = model.to(model.device)
         train_loader = DataLoader(ProcessDataset(train_list[fold][0], train_list[fold][1]), trainparams.BATCH_SIZE, shuffle = True)
         test_loader = DataLoader(ProcessDataset(test_list[fold][0], test_list[fold][1]), 2048, shuffle = True)
-        train(trainparams, train_loader,test_loader, model, y_min, y_max)
+        train(trainparams, train_loader,test_loader, model, y_min, y_max, PARAM_DIR)
 
 
 def validate(test_loader, model, tmin, tmax):
@@ -60,7 +58,7 @@ def validate(test_loader, model, tmin, tmax):
 
 
 
-def train(trainparams, data_loader, test_loader, model, tmin, tmax):
+def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR):
     NUM_EPOCHES = trainparams.NUM_EPOCHES
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)

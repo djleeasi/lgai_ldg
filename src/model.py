@@ -2,46 +2,61 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import softmax as softmax
 from numpy import Inf
+import ipdb 
 
 #-------------------------------------------------------------------------------------------------------------------
-
-class Encoder(nn.Module):
+class TheModel(nn.Module):
     def __init__(self, modelparams):
         self.device = modelparams.device
+        self.minloss = Inf
+        self.drop = modelparams.DROPP
         super().__init__()
         self.LSTM = nn.LSTM(input_size = modelparams.VECTOR_SIZE,
             hidden_size= modelparams.HIDDEN_SIZE,
-            batch_first=True
-            ).to(device = self.device)
-    def forward(self, x):
-        x = x.to(device=self.device)#x shape: batch*process_size*vector_size
-        output, final_status = self.LSTM(x)
-        return output, final_status# output shape: batch x process_size x hidden_size
+            batch_first=True,
+            )
+        self.attention = Attention(modelparams.HIDDEN_SIZE, modelparams.ATTENTION_SIZE)
+        self.linear1 = nn.Linear(in_features = modelparams.HIDDEN_SIZE, out_features=256)
+        self.linear2 = nn.Linear(in_features=256, out_features=14)
+        self.activation1 = nn.LeakyReLU(negative_slope=0.01)
+        self.activation2 = nn.LeakyReLU(negative_slope=0.3)
 
-class TheModel(nn.Module):
-    def __init__(self,modelparams):
-        self.minloss = Inf
-        self.device = modelparams.device
-        hidden_size = modelparams.HIDDEN_SIZE
-        super().__init__()
-        self.encoder=Encoder(modelparams)
-        self.decode_embed = nn.Parameter(torch.randn(1,hidden_size).to(device=self.device), requires_grad = True)
-        self.hiddenstate = nn.Sequential(nn.Linear(hidden_size*2, hidden_size),
-                                         nn.Dropout(modelparams.DROPP),
-                                         nn.BatchNorm1d(hidden_size),
-                                         nn.LeakyReLU(),
-                                         nn.Linear(hidden_size, modelparams.OUTPUT_CLASS),
-                                        nn.BatchNorm1d(modelparams.OUTPUT_CLASS)
-                                         ).to(device = self.device)
-        
-    def forward(self, x):#x: vector(vector_size= RNN 의 한 timestep 에 넣어주는 vector.)
+        self.batch1 = nn.BatchNorm1d(256)
+        self.batch2 = nn.BatchNorm1d(14)
+
+        # nn.init.kaiming_normal_(self.linear1.weight, mode='fan_in', nonlinearity='leaky_relu')
+        # nn.init.xavier_normal_(self.linear2.weight, gain = 1.0)
+
+    def forward(self, x):
         x = x.to(device=self.device)
-        batch_size = x.shape[0]
-        encoder_result, _ = self.encoder(x)#encoder result: batchxprocess_sizexhidden_size
-        decode_duplicated = self.decode_embed.unsqueeze(0).repeat(batch_size,1,1)    
-        attention_score = torch.matmul(encoder_result,decode_duplicated.transpose(1,2))#decoder_embed를 column vector로 바꿔주었다. final shape = batch*sentence size* 1
-        attention_distribution = softmax(attention_score, dim=1)
-        attention_value = torch.sum(encoder_result * attention_distribution, dim=1).unsqueeze(1)#아다마르 곱 후 unsqueeze 로 batch*1*hidden_size 로 바꿔준다
-        att_dec_concat = torch.cat((attention_value, decode_duplicated), dim = 2).squeeze(1)#batch*hidden_size 두배
-        final_vector = self.hiddenstate(att_dec_concat)
-        return final_vector
+        batch = x.shape[0]
+        x,(h,c)= self.LSTM(x)
+        x, alpha = self.attention(x, False)
+        x = self.linear1(x)
+        x = nn.functional.dropout(x, self.drop)
+        x = self.batch1(x)
+        x = self.activation1(x)
+        x = self.linear2(x)
+        x = nn.functional.dropout(x, self.drop)
+        x = self.batch2(x)
+        return x 
+
+class Attention(nn.Module):
+    def __init__(self, hidden_size, attention_size):
+        super(Attention, self).__init__()
+        self.W_omega = nn.Parameter(torch.FloatTensor(hidden_size, attention_size))
+        self.b_omega = nn.Parameter(torch.FloatTensor(attention_size))
+        self.u_omega = nn.Parameter(torch.FloatTensor(attention_size))
+        
+        nn.init.xavier_normal_(self.W_omega, gain=1)
+        nn.init.zeros_(self.b_omega)
+        nn.init.normal_(self.u_omega, std=1e-2)
+
+    def forward(self, x, time_major):
+        if time_major:
+            x = x.permute(1,0,2)
+        v = torch.sigmoid(torch.tensordot(x, self.W_omega, dims=1) + self.b_omega)
+        vu = torch.tensordot(v, self.u_omega, dims=1)
+        alpha = nn.functional.softmax(vu.squeeze(), dim=1)
+        output = (x * alpha.unsqueeze(-1)).mean(1)
+        return output, alpha
