@@ -17,8 +17,6 @@ modelparams = modelhyper()
 dataparams = datahyper()
 trainparams = trainhyper()
 
-PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + '.pt'
-
 def validate(test_loader, model):
     criterion = torch.nn.MSELoss()
     test_losses = []
@@ -88,11 +86,4 @@ def execute_train():
     train(trainparams, train_loader,test_loader, model)
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description='LGAI LDG version 3-train')
-    # parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training (default: 64)")
-    # parser.add_argument('--learning_rate', type=float, default=4e-7, help="Learning rate (default: 0.001)")
-    # parser.add_argument('--num_epochs', type=int, default=5, help="Number of epochs to train for (default: 5)")
-    # parser.add_argument('--weight_decay', type=float, default=4e-5, help="weight decay for (default: 0.0004)")
-    # args = parser.parse_args()
     execute_train()
-    # instantiate model

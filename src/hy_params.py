@@ -3,13 +3,14 @@ import torch
 #----------
 class modelhyper():
     def __init__(self):
-        self.MODELNAME = "LDGLSTM_4"
+        self.MODELNAME = "LSTM_ATT1"
         self.MODELVERSION = '1.1'
         self.HIDDEN_SIZE = 512
         self.VECTOR_SIZE = 7
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.DROPP = 0.5
         self.OUTPUT_CLASS = 14
+        self.KFOLD_NUM = 5 
 
 class datahyper():
     def __init__(self):
