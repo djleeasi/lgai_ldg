@@ -2,6 +2,7 @@
 from .model import TheModel
 from .mydataset import ProcessDataset, TestDataset
 from .hy_params import modelhyper, datahyper, trainhyper
+from .modelload import loadmodel
 #import packages
 import argparse
 import torch
@@ -68,11 +69,12 @@ def train(trainparams, data_loader, test_loader, model):
         print(f'train_loss : {epoch_train_loss}, validation_loss(unnormalized): {validation_loss}')
 
         # Save Model
-        if model.minloss > validation_loss:
-            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
-            model.minloss = validation_loss
+        if model.modeldata['minloss'] > validation_loss:
+            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.modeldata['minloss'], validation_loss))
+            model.modeldata['minloss'] =  validation_loss
+            model.modeldata['bestparam'] = model.state_dict()#potential pointer threat. but it's not an issue because the parameter is saved as a file rightafetr
             with open(PARAM_DIR,'wb') as f:
-                pickle.dump(model.state_dict(),f)
+                pickle.dump(model.modeldata,f)
             
 """
 if __name__ == '__main__':
@@ -89,15 +91,8 @@ if __name__ == '__main__':
 
 def execute_train():
     model = TheModel(modelparams)
-    if exists(PARAM_DIR):
-        with open(PARAM_DIR,'rb') as f:
-            params = pickle.load(f)
-        model.load_state_dict(params)
-        del params
-        print(PARAM_DIR + " exists")
-    else: print(PARAM_DIR + "does not exists")
+    loadmodel(model,PARAM_DIR)
     model = model.to(model.device)
-
     train_loader = DataLoader(ProcessDataset(dataparams,'train'), trainparams.BATCH_SIZE, shuffle = True)
     test_loader = DataLoader(ProcessDataset(dataparams,'validation'), 3000, shuffle = True)
     # Training The Model

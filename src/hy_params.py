@@ -11,8 +11,9 @@ class modelhyper():
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.DROPP = 0.5
         self.OUTPUT_CLASS = 14
-        self.MODEL_DATA = {#will be replaced with saved data
+        self.MODELDATA = {#will be replaced with saved data
             'minloss':numpy.Inf,
+            'bestparam':'Not Yet',
         }
 
 
@@ -32,5 +33,5 @@ class trainhyper():
     def __init__(self):
         self.LR = 4e-3
         self.WD = 0
-        self.NUM_EPOCHES = 50
+        self.NUM_EPOCHES = 10
         self.BATCH_SIZE = 2048

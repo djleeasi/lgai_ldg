@@ -1,3 +1,4 @@
+from typing import OrderedDict
 import torch
 import torch.nn as nn
 from torch.nn.functional import softmax as softmax
@@ -20,7 +21,7 @@ class Encoder(nn.Module):
 
 class TheModel(nn.Module):
     def __init__(self,modelparams):
-        self.minloss = Inf
+        self.modeldata = modelparams.MODELDATA#additional data
         self.device = modelparams.device
         hidden_size = modelparams.HIDDEN_SIZE
         super().__init__()
