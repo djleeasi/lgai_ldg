@@ -29,6 +29,7 @@ def main():
     train_list, test_list = k_fold(x_data, y_data, foldNum)
 
     for fold in range(foldNum):
+        print('FOLD ', 1+fold)
         PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + f'{fold}.pt'
         model = TheModel(modelparams)
         model = model.to(model.device)
@@ -61,10 +62,9 @@ def validate(test_loader, model, tmin, tmax, criterion):
 
 
 def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR):
-    criterion_validation = customloss(test_loader.dataset.Ys)
-
+    criterion_validation = customloss(test_loader.dataset.Ys, unnorm = True)
+    criterion = customloss(data_loader.dataset.Ys,  unnorm = True)
     NUM_EPOCHES = trainparams.NUM_EPOCHES
-    criterion = customloss(data_loader.dataset.Ys)
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
     #optimizer = torch.optim.SGD(model.parameters(), lr=LR)
     #optimizer = torch.optim.Adam(model.parameters(), lr=trainparams.LR)
@@ -92,10 +92,9 @@ def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR):
         if model.modeldata['minloss'] > validation_loss:
             print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.modeldata['minloss'], validation_loss))
             model.modeldata['minloss'] =  validation_loss
-            model.modeldata['bestparam'] = model.state_dict()#potential pointer threat. but it's not an issue because the parameter is saved as a file rightafetr
             with open(PARAM_DIR,'wb') as f:
+                model.modeldata['bestparam'] = model.state_dict()#potential pointer threat. but it's not an issue because the parameter is saved as a file rightafetr
                 pickle.dump(model.modeldata,f)
-            
 def k_fold(data, label, k_num=9):
     # kf = StratifiedKFold(n_splits=k_num, shuffle=True)
     # kf = KFold(n_splits=k_num, shuffle=True)

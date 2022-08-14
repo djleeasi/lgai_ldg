@@ -12,7 +12,7 @@ from os.path import exists
 import pickle
 import ipdb 
 #-------------------
-def result():
+def result(restore = True):
     FOLDER_DIR = './parameters/'
     modelparams = modelhyper()
     dataparams = datahyper()
@@ -34,11 +34,12 @@ def result():
         model = model.to(model.device)
         test_outputs += final_test(test_loader, model).to(device = 'cpu').numpy()
     test_outputs = test_outputs/foldNum
-    min = y_min
-    max = y_max
-    test_result = (test_outputs*(max-min))+min
+    if restore == True:
+        min = y_min
+        max = y_max
+        test_outputs = (test_outputs*(max-min))+min
     sub_csv = pd.read_csv(dataparams.DATA_DIR_SUBMISSION)
-    sub_csv.loc[:,'Y_01':] = test_result
+    sub_csv.loc[:,'Y_01':] = test_outputs
     sub_csv.to_csv(dataparams.DATA_DIR_RESULT + modelparams.MODELNAME + '.csv',index=False)
 
 #--------------------------------
@@ -59,4 +60,4 @@ def final_test(test_loader, model):
     return test_outputs
 
 if __name__ == '__main__':
-    result()
+    result(modelhyper().RESTORE)

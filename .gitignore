@@ -2,3 +2,4 @@ src/test.ipynb
 result/*.csv
 *.pt
 *.pyc
+.out

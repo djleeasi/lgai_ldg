@@ -9,7 +9,7 @@ import ipdb
 class TheModel(nn.Module):
     def __init__(self, modelparams):
         self.device = modelparams.device
-        self.modeldata = modelparams.MODELDATA
+        self.modeldata = modelparams.MODELDATA.copy()
         self.drop = modelparams.DROPP
         super().__init__()
         self.LSTM = nn.LSTM(input_size = modelparams.VECTOR_SIZE,
