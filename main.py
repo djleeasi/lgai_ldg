@@ -1,7 +1,7 @@
 from src.model import *
 from src.mydataset import ProcessDataset
 from src.hy_params import modelhyper, datahyper, trainhyper
-from src.customloss import customloss
+from src.customloss import customloss, customloss_entropy
 #import packages
 import torch
 import pickle
@@ -62,8 +62,8 @@ def validate(test_loader, model, tmin, tmax, criterion):
 
 
 def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR):
-    criterion_validation = customloss(test_loader.dataset.Ys, unnorm = True)
-    criterion = customloss(data_loader.dataset.Ys,  unnorm = True)
+    criterion_validation = customloss(test_loader.dataset.Ys, unnorm = False)
+    criterion = customloss(data_loader.dataset.Ys, unnorm = False)
     NUM_EPOCHES = trainparams.NUM_EPOCHES
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
     #optimizer = torch.optim.SGD(model.parameters(), lr=LR)

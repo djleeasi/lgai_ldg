@@ -38,4 +38,4 @@ class trainhyper():
         self.LR = 5e-3
         self.WD = 8e-9
         self.NUM_EPOCHES = 500
-        self.BATCH_SIZE = 2048
+        self.BATCH_SIZE = 128

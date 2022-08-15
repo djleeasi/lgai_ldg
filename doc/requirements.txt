@@ -1,11 +1,14 @@
+#추후 readme.md 로 만들어라.
 구조
-    hy_params.py:
+
+파일
+    src/hy_params.py:
         모델과 데이터셋의 하이퍼파라미터를 지정. 하이퍼파라미터의 Iterator 를 지정해주면 grid search를 할 수 있지 않을까 기대함.
-    model.py:
+    src/model.py:
         모델 구조를 지정. 모든 모델은 hy_params가 만든 하이퍼파라미터 객체로부터 자신에게 필요한 파라메터를 뽑아서 사용한다.
             모델의 state_dict에 기록:
                 모델이 진행한 총 epoch 수
-    train.py
+    src/main.py
         모델 인스턴스 제작, 데이터셋 제작(hy_params.py 를 받아서), 훈련 및 관련내용 기록.
-    getresult.py
+    result.py
         훈련이 완료된 모델을 테스트하고, 제출용 csv파일을 만들어낾
