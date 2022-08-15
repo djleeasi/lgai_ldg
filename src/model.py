@@ -14,12 +14,13 @@ class TheModel(nn.Module):
         self.LSTM = nn.LSTM(input_size = modelparams.VECTOR_SIZE,
             hidden_size= modelparams.HIDDEN_SIZE,
             batch_first=True,
+            bidirectional = True
             )
         self.attention = Attention(modelparams.HIDDEN_SIZE, modelparams.ATTENTION_SIZE)
-        self.linear1 = nn.Linear(in_features = modelparams.HIDDEN_SIZE, out_features=256)
+        self.linear1 = nn.Linear(in_features = 2*modelparams.HIDDEN_SIZE, out_features=256)
         self.linear2 = nn.Linear(in_features=256, out_features=14)
-        self.activation1 = nn.LeakyReLU(negative_slope=0.01)
-        self.activation2 = nn.LeakyReLU(negative_slope=0.3)
+        self.activation1 = nn.LeakyReLU(negative_slope=0.5)
+        # self.activation2 = nn.LeakyReLU(negative_slope=0.3)
 
         self.batch1 = nn.BatchNorm1d(256)
         self.batch2 = nn.BatchNorm1d(14)
@@ -44,7 +45,7 @@ class TheModel(nn.Module):
 class Attention(nn.Module):
     def __init__(self, hidden_size, attention_size):
         super(Attention, self).__init__()
-        self.W_omega = nn.Parameter(torch.FloatTensor(hidden_size, attention_size))
+        self.W_omega = nn.Parameter(torch.FloatTensor(2*hidden_size, attention_size))
         self.b_omega = nn.Parameter(torch.FloatTensor(attention_size))
         self.u_omega = nn.Parameter(torch.FloatTensor(attention_size))
         

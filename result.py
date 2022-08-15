@@ -10,6 +10,7 @@ import ipdb
 from src.model import TheModel
 from src.mydataset import TestDataset
 from src.hy_params import datahyper, modelhyper
+from src.prepro import *
 #-------------------
 
 def result():
@@ -17,13 +18,19 @@ def result():
     modelparams = modelhyper()
     dataparams = datahyper()
     foldNum = modelparams.KFOLD_NUM
+    with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
+        _, _, stages = pickle.load(f)
 
-    with open(dataparams.DATA_DIR_MINMAX,'rb')as f:   
-        _, _, y_min, y_max = pickle.load(f)
-    with open(dataparams.DATA_DIR_TEST,'rb')as f:   
-        testset = pickle.load(f)
     test_outputs = np.zeros((39608,14))
     for fold in range(foldNum):
+        with open(dataparams.DATA_DIR_TEST,'rb')as f:   
+            testset = pickle.load(f)
+        # fold 별 min max 불러오기 
+        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
+        with open(MinMax_path,'rb')as f:
+            x_min, x_max, y_min, y_max = pickle.load(f)
+        testset = prevXRnn(testset, x_min, x_max,stages)
+
         PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + f'{fold}.pt'
         test_loader = DataLoader(TestDataset(testset), 2048, shuffle = False)
         model = TheModel(modelparams)
@@ -33,11 +40,11 @@ def result():
         else:
             raise Exception("parameter file does not exist")
         model = model.to(model.device)
-        test_outputs += final_test(test_loader, model).to(device = 'cpu').numpy()
-    test_outputs = test_outputs/foldNum
-    min = y_min
-    max = y_max
-    test_result = (test_outputs*(max-min))+min
+        output = final_test(test_loader, model).to(device = 'cpu').numpy()
+        test_output = (output*(y_max-y_min))+y_min
+        test_outputs += test_output
+
+    test_result = test_outputs/foldNum
     sub_csv = pd.read_csv(dataparams.DATA_DIR_SUBMISSION)
     sub_csv.loc[:,'Y_01':] = test_result
     sub_csv.to_csv(dataparams.DATA_DIR_RESULT + modelparams.MODELNAME + '.csv',index=False)
