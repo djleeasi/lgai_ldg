@@ -1,12 +1,13 @@
 from src.model import *
 from src.mydataset import ProcessDataset
 from src.hy_params import modelhyper, datahyper, trainhyper
-from src.customloss import customloss, customloss_entropy
+from src.prepro import *
 #import packages
 import torch
 import pickle
 import pandas as pd 
 from sklearn.model_selection import KFold
+from sklearn import metrics
 import numpy as np
 from tqdm import tqdm
 from os.path import exists
@@ -18,57 +19,66 @@ def main():
     modelparams = modelhyper()
     dataparams = datahyper()
     trainparams = trainhyper()
-    FOLDER_DIR = dataparams.DATA_DIR_PARAMETER
     foldNum = modelparams.KFOLD_NUM
     with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
-        x_data, y_data = pickle.load(f)
-        
-    with open(dataparams.DATA_DIR_MINMAX,'rb')as f:   
-        _, _, y_min, y_max = pickle.load(f)
-         
-    train_list, test_list = k_fold(x_data, y_data, foldNum)
+        x_data, y_data, stages = pickle.load(f)
+    #raw 데이터셋을 shuffle
+    shuffle_idx = np.arange(x_data.shape[0])
+    np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize
+    x_data = x_data[shuffle_idx,:]
+    y_data = y_data[shuffle_idx,:]
+    train_list, valid_list = k_fold(x_data, y_data, foldNum)
+
 
     for fold in range(foldNum):
-        print('FOLD ', 1+fold)
-        PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + f'{fold}.pt'
+        print('FOLD', 1+fold)
+        train_x, train_y = train_list[fold][0], train_list[fold][1]
+        valid_x, valid_y = valid_list[fold][0], valid_list[fold][1]
+        train_x, train_x_min, train_x_max = preXRnn(train_x, stages)
+        train_y, train_y_min, train_y_max = preYRnn(train_y)
+        valid_x = prevXRnn(valid_x, train_x_min, train_x_max,stages)
+        valid_y = prevYRnn(valid_y, train_y_min, train_y_max)
+        PARAM_DIR = dataparams.DATA_DIR_PARAMETER + modelparams.MODELNAME + f'{fold}.pt'
+        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
+        with open(MinMax_path, 'wb')as f:
+            pickle.dump((train_x_min, train_x_max, train_y_min, train_y_max), f)
         model = TheModel(modelparams)
         model = model.to(model.device)
-        train_loader = DataLoader(ProcessDataset(train_list[fold][0], train_list[fold][1]), trainparams.BATCH_SIZE, shuffle = True)
-        test_loader = DataLoader(ProcessDataset(test_list[fold][0], test_list[fold][1]), 2048, shuffle = True)
-        train(trainparams, train_loader,test_loader, model, y_min, y_max, PARAM_DIR)
+        train_loader = DataLoader(ProcessDataset(train_x, train_y), trainparams.BATCH_SIZE, shuffle = True)
+        test_loader = DataLoader(ProcessDataset(valid_x, valid_y), 2048, shuffle = True)
+        train(trainparams, train_loader,test_loader, model, train_y_min, train_y_max, PARAM_DIR, modelparams.Norm)
 
 
-def validate(test_loader, model, tmin, tmax, criterion):
+def validate(test_loader, model, mult, add,Norm):
+    # criterion = torch.nn.MSELoss()
     test_losses = []
     total=0
     model.eval()
     test_loss = 0
-    #minmax normalization 원복 코드
-    mult= tmax - tmin 
-    mult = torch.tensor(mult).to(device = model.device)
-    add = torch.tensor(tmin).to(device = model.device)
-    #---
     with torch.no_grad():
         for i, (inputdata, target) in enumerate(tqdm(test_loader)):
             target = target.to(device=model.device) 
             output = model(inputdata).to(device=model.device)
-            loss = criterion(output,target)
+            # if Norm:
+            #     loss = criterion((output*mult)+add, (target*mult)+add)
+            # else:
+            #     loss = criterion(output, target)
+            loss = wRMSE(output, target)
             test_losses.append(loss.item())
-            total += target.size(0)
         test_loss = np.mean(test_losses)
     model.train()
     return test_loss
 
 
 
-def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR):
-    criterion_validation = customloss(test_loader.dataset.Ys, unnorm = False)
-    criterion = customloss(data_loader.dataset.Ys, unnorm = False)
+def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,Norm):
     NUM_EPOCHES = trainparams.NUM_EPOCHES
+    # criterion = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
-    #optimizer = torch.optim.SGD(model.parameters(), lr=LR)
-    #optimizer = torch.optim.Adam(model.parameters(), lr=trainparams.LR)
-    
+    # testingloss = weightedRMSE
+    mult = tmax - tmin 
+    mult = torch.tensor(mult).to(device = model.device)
+    add = torch.tensor(tmin).to(device = model.device)
     for epoch in range(NUM_EPOCHES):
         train_losses = []
         total=0
@@ -78,36 +88,25 @@ def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR):
             target = target.to(device=model.device)        
             optimizer.zero_grad()
             output = model(inputdata).to(device=model.device)
-            loss = criterion(output, target)
+
+            # if Norm:
+            #     loss = criterion((output*mult)+add, (target*mult)+add)
+            # else:
+            #     loss = criterion(output, target)
+            loss = wRMSE(output, target)
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
-            total += target.size(0)
         epoch_train_loss = np.mean(train_losses)
-        validation_loss = validate(test_loader, model, tmin, tmax, criterion_validation)
+        validation_loss = validate(test_loader,model, mult, add,Norm)
         print(f'Epoch {epoch+1}') 
         print(f'train_loss : {epoch_train_loss}, validation_loss: {validation_loss}')
 
         # Save Model
-        if model.modeldata['minloss'] > validation_loss:
-            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.modeldata['minloss'], validation_loss))
-            model.modeldata['minloss'] =  validation_loss
-            with open(PARAM_DIR,'wb') as f:
-                model.modeldata['bestparam'] = model.state_dict()#potential pointer threat. but it's not an issue because the parameter is saved as a file rightafetr
-                pickle.dump(model.modeldata,f)
-def k_fold(data, label, k_num=9):
-    # kf = StratifiedKFold(n_splits=k_num, shuffle=True)
-    # kf = KFold(n_splits=k_num, shuffle=True)
-    kf = KFold(n_splits=k_num) 
-    train_list = list()
-    valid_list = list()
-    for train_idx, valid_idx in kf.split(data, label):
-        x_train, x_valid = data[train_idx], data[valid_idx]
-        y_train, y_valid = label[train_idx], label[valid_idx]
-        train_list.append((x_train, y_train))
-        valid_list.append((x_valid, y_valid))
-
-    return train_list, valid_list
-
+        if model.minloss > validation_loss:
+            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
+            model.minloss = validation_loss
+            torch.save(model.state_dict(), PARAM_DIR)
+            
 if __name__ == '__main__':
     main()
