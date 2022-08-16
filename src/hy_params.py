@@ -28,5 +28,5 @@ class trainhyper():
     def __init__(self):
         self.LR = 4e-3
         self.WD = 0
-        self.NUM_EPOCHES = 5
+        self.NUM_EPOCHES = 200
         self.BATCH_SIZE = 64 #작은 batchsize가 좋다.

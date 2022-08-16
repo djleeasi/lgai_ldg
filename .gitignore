@@ -1,5 +1,6 @@
-src/test.ipynb
+test.ipynb
 result/*.csv
 *.pt
 *.pyc
-.out
+*.out
+parameters/MinMax/*.pickle

@@ -49,7 +49,7 @@ def main():
         train(trainparams, train_loader,test_loader, model, train_y_min, train_y_max, PARAM_DIR, modelparams.Norm)
 
 
-def validate(test_loader, model, mult, add,Norm):
+def validate(test_loader, model, loss_func):
     # criterion = torch.nn.MSELoss()
     test_losses = []
     total=0
@@ -59,11 +59,7 @@ def validate(test_loader, model, mult, add,Norm):
         for i, (inputdata, target) in enumerate(tqdm(test_loader)):
             target = target.to(device=model.device) 
             output = model(inputdata).to(device=model.device)
-            # if Norm:
-            #     loss = criterion((output*mult)+add, (target*mult)+add)
-            # else:
-            #     loss = criterion(output, target)
-            loss = wRMSE(output, target)
+            loss = loss_func(output, target)
             test_losses.append(loss.item())
         test_loss = np.mean(test_losses)
     model.train()
@@ -73,7 +69,8 @@ def validate(test_loader, model, mult, add,Norm):
 
 def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,Norm):
     NUM_EPOCHES = trainparams.NUM_EPOCHES
-    # criterion = torch.nn.MSELoss()
+    loss_func_train = customloss_entropy(data_loader.dataset.Ys, (tmin, tmax))
+    loss_func_validation = customloss(test_loader.dataset.Ys,(tmin, tmax))
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
     # testingloss = weightedRMSE
     mult = tmax - tmin 
@@ -88,17 +85,16 @@ def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,No
             target = target.to(device=model.device)        
             optimizer.zero_grad()
             output = model(inputdata).to(device=model.device)
-
             # if Norm:
             #     loss = criterion((output*mult)+add, (target*mult)+add)
             # else:
             #     loss = criterion(output, target)
-            loss = wRMSE(output, target)
+            loss = loss_func_train(output, target)
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
         epoch_train_loss = np.mean(train_losses)
-        validation_loss = validate(test_loader,model, mult, add,Norm)
+        validation_loss = validate(test_loader,model, loss_func_validation)
         print(f'Epoch {epoch+1}') 
         print(f'train_loss : {epoch_train_loss}, validation_loss: {validation_loss}')
 
