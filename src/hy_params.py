@@ -16,6 +16,7 @@ class datahyper():
         self.DATA_DIR_TRAIN = './data/preprocessed/train.pickle'
         self.DATA_DIR_TEST = './data/preprocessed/test.pickle'
         self.DATA_DIR_SUBMISSION = './data/rawdata/sample_submission.csv'
+        self.DATA_DIR_MM = './parameters/MinMax/'
         self.DATA_DIR_RESULT = './result/'
         self.DATA_DIR_PARAMETER = './parameters/'
         self.seed = 213564#currently not used

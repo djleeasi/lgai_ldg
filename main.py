@@ -25,7 +25,6 @@ def main():
     datas = datas.drop(columns = ['X_10', 'X_11', 'X_04', 'X_23', 'X_47', 'X_48'])
     x_data = datas.iloc[:, :50].values
     y_data = datas.iloc[:, 50:].values
-    #raw 데이터셋을 shuffle
     shuffle_idx = np.arange(x_data.shape[0])
     np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize
     x_data = x_data[shuffle_idx,:]
@@ -36,6 +35,13 @@ def main():
         print('FOLD', 1+fold)
         train_x, train_y = train_list[fold][0], train_list[fold][1]
         valid_x, valid_y = valid_list[fold][0], valid_list[fold][1]
+        train_x, xmin_train, xmax_train = preYRnn(train_x)#raw 데이터셋을 shuffle
+        train_y, ymin_train, ymax_train = preYRnn(train_y)
+        valid_x= prevYRnn(valid_x, xmin_train, xmax_train)#raw 데이터셋을 shuffle
+        valid_y= prevYRnn(valid_y, ymin_train, ymax_train)
+        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
+        with open(MinMax_path, 'wb')as f:
+            pickle.dump((xmin_train, xmax_train, ymin_train, ymax_train), f)
         PARAM_DIR = dataparams.DATA_DIR_PARAMETER + modelparams.MODELNAME + f'{fold}.pt'
         model = TheModel(modelparams)
         model = model.to(model.device)
