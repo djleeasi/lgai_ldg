@@ -22,8 +22,9 @@ def main():
     foldNum = modelparams.KFOLD_NUM
     datas = pd.read_csv('data/rawdata/train.csv')
     datas = datas.drop(columns='ID')
-    x_data = datas.iloc[:, :56].values
-    y_data = datas.iloc[:, 56:].values
+    datas = datas.drop(columns = ['X_10', 'X_11', 'X_04', 'X_23', 'X_47', 'X_48'])
+    x_data = datas.iloc[:, :50].values
+    y_data = datas.iloc[:, 50:].values
     #raw 데이터셋을 shuffle
     shuffle_idx = np.arange(x_data.shape[0])
     np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize

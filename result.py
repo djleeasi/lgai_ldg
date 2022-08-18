@@ -22,7 +22,8 @@ def result():
         _, train_y, stages = pickle.load(f)
     datas = pd.read_csv('data/rawdata/test.csv')
     datas = datas.drop(columns='ID')
-    testset_raw = datas.iloc[:, :56].values
+    datas = datas.drop(columns = ['X_10', 'X_11', 'X_04', 'X_23', 'X_47', 'X_48'])
+    testset_raw = datas.iloc[:, :50].values
     test_outputs = np.zeros((testset_raw.shape[0], train_y.shape[1]))
     del train_y
     for fold in range(foldNum):

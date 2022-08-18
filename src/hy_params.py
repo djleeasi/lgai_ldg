@@ -4,7 +4,7 @@ class modelhyper():
     def __init__(self):
         self.MODELNAME = "LINEAR_BASELINE_"
         self.HIDDEN_SIZE = 128
-        self.VECTOR_SIZE = 56
+        self.VECTOR_SIZE = 50
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.OUTPUT_CLASS = 14
         self.KFOLD_NUM = 5
@@ -25,4 +25,4 @@ class trainhyper():
         self.LR = 0.001
         self.WD = 0
         self.NUM_EPOCHES = 100
-        self.BATCH_SIZE = 32#작은 batchsize가 좋다.
+        self.BATCH_SIZE = 320#작은 batchsize가 좋다.
