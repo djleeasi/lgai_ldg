@@ -157,7 +157,7 @@ class customloss_entropy(customloss):#useable on train only
             raw_mse_torch = self.MSELoss(yhat, y)
         label_probs = self.labeldist.pdf(yhat.detach().cpu().numpy())
         label_probs = torch.tensor(label_probs, requires_grad=False).to(device = self.yhatmean.device)
-        label_entropy = -torch.log2(label_probs+1e-9)
+        label_entropy = -torch.log2(label_probs+1e-9)+1
         entropy_mse_torch = raw_mse_torch*label_entropy
         torchmse = torch.mean(entropy_mse_torch,0)
         rmse = torch.sqrt(torchmse)

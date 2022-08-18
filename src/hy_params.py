@@ -26,7 +26,7 @@ class datahyper():
 
 class trainhyper():
     def __init__(self):
-        self.LR = 4e-3
-        self.WD = 0
+        self.LR = 5e-4/15
+        self.WD = 5e-7
         self.NUM_EPOCHES = 200
         self.BATCH_SIZE = 64 #작은 batchsize가 좋다.
