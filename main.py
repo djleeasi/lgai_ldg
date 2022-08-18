@@ -5,7 +5,7 @@ from src.prepro import *
 #import packages
 import torch
 import pickle
-import pandas as pd 
+import pandas as pd
 from sklearn.model_selection import KFold
 from sklearn import metrics
 import numpy as np
@@ -20,8 +20,10 @@ def main():
     dataparams = datahyper()
     trainparams = trainhyper()
     foldNum = modelparams.KFOLD_NUM
-    with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
-        x_data, y_data, stages = pickle.load(f)
+    datas = pd.read_csv('data/rawdata/train.csv')
+    datas = datas.drop(columns='ID')
+    x_data = datas.iloc[:, :56].values
+    y_data = datas.iloc[:, 56:].values
     #raw 데이터셋을 shuffle
     shuffle_idx = np.arange(x_data.shape[0])
     np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize
@@ -29,28 +31,18 @@ def main():
     y_data = y_data[shuffle_idx,:]
     train_list, valid_list = k_fold(x_data, y_data, foldNum)
 
-
     for fold in range(foldNum):
         print('FOLD', 1+fold)
         train_x, train_y = train_list[fold][0], train_list[fold][1]
         valid_x, valid_y = valid_list[fold][0], valid_list[fold][1]
-        train_x, train_x_min, train_x_max = preXRnn(train_x, stages)
-        train_y, train_y_min, train_y_max = preYRnn(train_y)
-        valid_x = prevXRnn(valid_x, train_x_min, train_x_max,stages)
-        valid_y = prevYRnn(valid_y, train_y_min, train_y_max)
         PARAM_DIR = dataparams.DATA_DIR_PARAMETER + modelparams.MODELNAME + f'{fold}.pt'
-        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
-        with open(MinMax_path, 'wb')as f:
-            pickle.dump((train_x_min, train_x_max, train_y_min, train_y_max), f)
         model = TheModel(modelparams)
         model = model.to(model.device)
-        train_loader = DataLoader(ProcessDataset(train_x, train_y), trainparams.BATCH_SIZE, shuffle = True)
-        test_loader = DataLoader(ProcessDataset(valid_x, valid_y), 2048, shuffle = True)
-        train(trainparams, train_loader,test_loader, model, train_y_min, train_y_max, PARAM_DIR, modelparams.Norm)
-
+        train_loader = DataLoader(ProcessDataset(train_x, train_y, mode =  False), trainparams.BATCH_SIZE, shuffle = True)
+        test_loader = DataLoader(ProcessDataset(valid_x, valid_y, mode = False), 2048, shuffle = True)
+        train(trainparams, train_loader,test_loader, model, PARAM_DIR, modelparams.Norm)
 
 def validate(test_loader, model, loss_func):
-    # criterion = torch.nn.MSELoss()
     test_losses = []
     total=0
     model.eval()
@@ -65,17 +57,10 @@ def validate(test_loader, model, loss_func):
     model.train()
     return test_loss
 
-
-
-def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,Norm):
+def train(trainparams, data_loader, test_loader, model, PARAM_DIR,Norm):
     NUM_EPOCHES = trainparams.NUM_EPOCHES
-    loss_func_train = customloss_entropy(data_loader.dataset.Ys, (tmin, tmax))
-    loss_func_validation = customloss(test_loader.dataset.Ys,(tmin, tmax))
-    optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
-    # testingloss = weightedRMSE
-    mult = tmax - tmin 
-    mult = torch.tensor(mult).to(device = model.device)
-    add = torch.tensor(tmin).to(device = model.device)
+    loss_func_train = loss_func_validation = nn.L1Loss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD, eps= 1e-7)
     for epoch in range(NUM_EPOCHES):
         train_losses = []
         total=0
@@ -85,10 +70,6 @@ def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,No
             target = target.to(device=model.device)        
             optimizer.zero_grad()
             output = model(inputdata).to(device=model.device)
-            # if Norm:
-            #     loss = criterion((output*mult)+add, (target*mult)+add)
-            # else:
-            #     loss = criterion(output, target)
             loss = loss_func_train(output, target)
             loss.backward()
             optimizer.step()
@@ -103,6 +84,5 @@ def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,No
             print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
             model.minloss = validation_loss
             torch.save(model.state_dict(), PARAM_DIR)
-            
 if __name__ == '__main__':
     main()
