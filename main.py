@@ -20,7 +20,6 @@ def main():
     trainparams = trainhyper()
     foldNum = modelparams.KFOLD_NUM
     #raw 데이터셋을 shuffle
-    #ipdb.set_trace()
     with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
         x_data, y_data, stages = pickle.load(f)
     x_n, x_an = x_data[0], x_data[1]
@@ -48,18 +47,19 @@ def main():
         train_an_set = ProcessDataset(train_x_an, train_y_an, mode= False)
         train_n_batch = round(trainparams.BATCH_SIZE*trainparams.N_RATIO)
         train_an_batch = round(trainparams.BATCH_SIZE*(1-trainparams.N_RATIO))
-        batchtotal = train_n_batch+train_an_batch
-        print(train_an_batch, train_n_batch, batchtotal)
         train_loader_n = DataLoader(
                                     train_n_set,
                                     train_n_batch,
-                                    sampler = RandomSampler(train_n_set, replacement=True, num_samples = batchtotal)
+                                    sampler = RandomSampler(train_n_set, replacement=True, num_samples = len(train_n_set)),
                                     )
+
         train_loader_an = DataLoader(
                                     train_an_set,
                                     train_an_batch,
-                                    sampler = RandomSampler(train_an_set, replacement=True, num_samples = batchtotal)
+                                    sampler = RandomSampler(train_an_set, replacement=True, num_samples = len(train_an_set)),
+                                    drop_last=True
                                     )
+        #ipdb.set_trace()
         #ipdb.set_trace()
         test_loader = DataLoader(ProcessDataset(valid_x, valid_y, mode = False), 2048, shuffle = True)
         train(trainparams, train_loader_n, train_loader_an, test_loader, model, PARAM_DIR)
@@ -87,19 +87,21 @@ def train(trainparams, data_loader_n, data_loader_an, test_loader, model, PARAM_
         train_losses = []
         print(f"[Epoch {epoch+1} / {NUM_EPOCHES}]")
         model.train()
-        ipdb.set_trace()
+        ittter = iter(data_loader_an)#debug
+        e=0
         for i, (inputdata_n, target_n) in enumerate(tqdm(data_loader_n)):
-            for inputdata_an, target_an in data_loader_an:
-                inputdata = torch.cat((inputdata_n, inputdata_an))
-                target = torch.cat((target_n, target_an))
-                target = target.to(device = model.device)
-                optimizer.zero_grad()
-                output = model(inputdata).to(device=model.device)
-                loss = loss_func_train(output, target)
-                loss.backward()
-                optimizer.step()
-                train_losses.append(loss.item())
-                pass
+            for i2, (inputdata_an, target_an) in enumerate(data_loader_an):
+                if i == i2:
+                    inputdata = torch.cat((inputdata_n, inputdata_an))
+                    target = torch.cat((target_n, target_an))
+                    target = target.to(device = model.device)
+                    optimizer.zero_grad()
+                    output = model(inputdata).to(device=model.device)
+                    loss = loss_func_train(output, target)
+                    loss.backward()
+                    optimizer.step()
+                    train_losses.append(loss.item())
+        # ipdb.set_trace()
         epoch_train_loss = np.mean(train_losses)
         validation_loss = validate(test_loader, model, loss_func_validation)
         print(f'Epoch {epoch+1}') 
