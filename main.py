@@ -23,17 +23,24 @@ def main():
     with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
         x_data, y_data, stages = pickle.load(f)
     #raw 데이터셋을 shuffle
-    shuffle_idx = np.arange(x_data.shape[0])
-    np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize
-    x_data = x_data[shuffle_idx,:]
-    y_data = y_data[shuffle_idx,:]
-    train_list, valid_list = k_fold(x_data, y_data, foldNum)
+    # shuffle_idx = np.arange(x_data.shape[0])
+    # np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize
+    # x_data = x_data[shuffle_idx,:]
+    # y_data = y_data[shuffle_idx,:]
+
+    ipdb.set_trace()
+    x_n, x_an = x_data[0], x_data[1]
+    y_n, y_an = y_data[0], y_data[1]
+    t_n_list, v_n_list = k_fold(x_n, y_n, foldNum)
+    t_an_list, v_an_list = k_fold(x_an, y_an, foldNum)
 
 
     for fold in range(foldNum):
         print('FOLD', 1+fold)
-        train_x, train_y = train_list[fold][0], train_list[fold][1]
-        valid_x, valid_y = valid_list[fold][0], valid_list[fold][1]
+        train_x = np.concatenate((t_n_list[fold][0],t_an_list[fold][0]), axis = 0)
+        train_y = np.concatenate((t_n_list[fold][1],t_an_list[fold][1]), axis = 0) 
+        valid_x = np.concatenate((v_n_list[fold][0],v_an_list[fold][0]), axis = 0)
+        valid_y = np.concatenate((v_n_list[fold][1],v_an_list[fold][1]), axis = 0) 
         train_x, train_x_min, train_x_max = preXRnn(train_x, stages)
         train_y, train_y_min, train_y_max = preYRnn(train_y)
         valid_x = prevXRnn(valid_x, train_x_min, train_x_max,stages)

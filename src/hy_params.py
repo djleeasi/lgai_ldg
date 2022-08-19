@@ -2,7 +2,7 @@ import torch
 #model specific imports
 class modelhyper():
     def __init__(self):
-        self.MODELNAME = "sh_at1_"
+        self.MODELNAME = "test_"
         self.HIDDEN_SIZE = 512
         self.ATTENTION_SIZE = 1
         self.VECTOR_SIZE = 7
@@ -16,9 +16,9 @@ class datahyper():
     def __init__(self):
         #ratio of training compared to total dataset
         self.TRAINRATIO = 0.8
-        self.DATA_DIR_TRAIN = './data/preprocessed/train.pickle'
+        self.DATA_DIR_TRAIN = './data/preprocessed/ntrain.pickle'
         self.DATA_DIR_TEST = './data/preprocessed/test.pickle'
-        self.DATA_DIR_MM = './parameters/MinMax/'
+        self.DATA_DIR_MM = './parameters/minmax/'
         self.DATA_DIR_SUBMISSION = './data/rawdata/sample_submission.csv'
         self.DATA_DIR_RESULT = './result/'
         self.DATA_DIR_PARAMETER = './parameters/'
