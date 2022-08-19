@@ -103,6 +103,7 @@ def train(trainparams, data_loader, test_loader, model, tmin, tmax, PARAM_DIR,No
             print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
             model.minloss = validation_loss
             torch.save(model.state_dict(), PARAM_DIR)
-            
+
+
 if __name__ == '__main__':
     main()
