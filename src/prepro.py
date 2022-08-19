@@ -46,6 +46,26 @@ def preXRnn(xData:np.ndarray,stageNum:np.ndarray) -> tuple:
         totalX = np.concatenate((totalX,padX),axis =1)
     return totalX, xMin, xMax
 
+
+def preXRnn_nn(xData:np.ndarray,stageNum:np.ndarray) -> tuple: 
+    """
+        xData: (batchsize, vector), stageNum:(stage,), return: totalX. nomalize 안함!!! \n
+        RNN에 넣기 위해 2차원(batchsize, vector)후 3차원 (batchsize, stage, vector/stageNum) 으로 바꿔주는 함수.\n
+        ex)vector = 8, stageNum = [2,3,3] 이면 totalX.shape = (batchsize, 3, 3) 이 된다. 크기가 안 맞는 부분은 0으로 pad.
+    """
+    maxNum = np.max(stageNum)
+    initX = xData[:,:stageNum[0]]
+    stNum = stageNum[0]
+    initX = np.pad(initX,((0,0),(0,maxNum-np.shape(initX)[-1])), 'constant', constant_values=(0))
+    totalX = np.expand_dims(initX, axis=1)
+    for i in range(1,len(stageNum),1):
+        stageX = xData[:,stNum:stNum+stageNum[i]] 
+        stNum += stageNum[i]
+        padX = np.pad(stageX,((0,0),(0,maxNum - np.shape(stageX)[-1])), 'constant', constant_values=(0))
+        padX = np.expand_dims(padX, axis=1)
+        totalX = np.concatenate((totalX,padX),axis =1)
+    return totalX
+
 def preYRnn(yData:np.ndarray) -> tuple:
     """
         yData: (batchsize, vector), return: yData, yMin, yMax \n

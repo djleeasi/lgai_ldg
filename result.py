@@ -19,20 +19,17 @@ def result():
     dataparams = datahyper()
     foldNum = modelparams.KFOLD_NUM
     with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
-        _, train_y, stages = pickle.load(f)
+        _, _, stages = pickle.load(f)
     with open(dataparams.DATA_DIR_TEST,'rb')as f:   
         testset_raw = pickle.load(f)
-    test_outputs = np.zeros((testset_raw.shape[0], train_y.shape[1]))
-    del train_y
+    testset_raw = preXRnn_nn(testset_raw, stages)
+    test_outputs = np.zeros((testset_raw.shape[0], 14))
+
     for fold in range(foldNum):
         # fold 별 min max 불러오기
         FOLDER_DIR = dataparams.DATA_DIR_PARAMETER
         PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + f'{fold}.pt'
-        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
-        with open(MinMax_path,'rb')as f:
-            x_min, x_max, y_min, y_max = pickle.load(f)
         testset = copy.deepcopy(testset_raw)
-        testset = prevXRnn(testset, x_min, x_max,stages)
         test_loader = DataLoader(TestDataset(testset), 2048, shuffle = False)
         model = TheModel(modelparams)
         if exists(PARAM_DIR):
@@ -42,7 +39,7 @@ def result():
             raise Exception("parameter file does not exist")
         model = model.to(model.device)
         output = final_test(test_loader, model).to(device = 'cpu').numpy()
-        test_output = (output*(y_max-y_min))+y_min
+        test_output = output
         test_outputs += test_output
 
     test_result = test_outputs/foldNum
