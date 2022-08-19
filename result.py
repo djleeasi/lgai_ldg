@@ -18,20 +18,16 @@ def result():
     modelparams = modelhyper()
     dataparams = datahyper()
     foldNum = modelparams.KFOLD_NUM
-    with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
-        _, train_y, stages = pickle.load(f)
-    datas = pd.read_csv('data/rawdata/test.csv')
-    datas = datas.drop(columns='ID')
-    datas = datas.drop(columns = ['X_10', 'X_11', 'X_04', 'X_23', 'X_47', 'X_48'])
-    testset_raw = datas.iloc[:, :50].values
-    test_outputs = np.zeros((testset_raw.shape[0], train_y.shape[1]))
-    del train_y
+    with open(dataparams.DATA_DIR_TEST,'rb')as f:   
+        testset_raw = pickle.load(f)
+    indexlist = list(range(8))+list(range(10,52))
+    testset_raw = testset_raw[:, indexlist]
+    test_outputs = np.zeros((testset_raw.shape[0], 14))
     for fold in range(foldNum):
         # fold 별 min max 불러오기
         FOLDER_DIR = dataparams.DATA_DIR_PARAMETER
         PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + f'{fold}.pt'
         testset = copy.deepcopy(testset_raw)
-        print(np.mean(testset, axis = 0))
         test_loader = DataLoader(TestDataset(testset, mode=False), 2048, shuffle = False)
         model = TheModel(modelparams)
         if exists(PARAM_DIR):
@@ -40,7 +36,8 @@ def result():
         else:
             raise Exception("parameter file does not exist")
         model = model.to(model.device)
-        test_output = final_test(test_loader, model).to(device = 'cpu').numpy()
+        output = final_test(test_loader, model).to(device = 'cpu').numpy()
+        test_output = output
         test_outputs += test_output
 
     test_result = test_outputs/foldNum

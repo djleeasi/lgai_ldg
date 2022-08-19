@@ -3,4 +3,5 @@ result/*.csv
 *.pt
 *.pyc
 *.out
+parameters/minmax/*.pickle
 parameters/MinMax/*.pickle
