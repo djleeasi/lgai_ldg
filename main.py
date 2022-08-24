@@ -2,6 +2,8 @@ from src.model import *
 from src.mydataset import ProcessDataset
 from src.hy_params import modelhyper, datahyper, trainhyper
 from src.prepro import *
+from src.LDGlib import shufflearrays
+from src.losses import SimCLR_Loss
 #import packages
 import torch
 import pickle
@@ -35,14 +37,17 @@ def main():
         print('FOLD', 1+fold)
         train_x, train_y = train_list[fold][0], train_list[fold][1]
         valid_x, valid_y = valid_list[fold][0], valid_list[fold][1]
-        train_x, xmin_train, xmax_train = preYRnn(train_x)#raw 데이터셋을 shuffle
-        train_y, ymin_train, ymax_train = preYRnn(train_y)
-        valid_x= prevYRnn(valid_x, xmin_train, xmax_train)#raw 데이터셋을 shuffle
-        valid_y= prevYRnn(valid_y, ymin_train, ymax_train)
-        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
-        with open(MinMax_path, 'wb')as f:
-            pickle.dump((xmin_train, xmax_train, ymin_train, ymax_train), f)
+        train_x_std = np.std(train_x, axis = 0)+1e-20
+        train_y_std = np.std(train_y, axis = 0)+1e-20
+        train_x_mean = np.mean(train_x, axis = 0)
+        train_y_mean = np.mean(train_y, axis = 0)
+        train_x = (train_x-train_x_mean)/train_x_std
+        train_y = (train_y-train_y_mean)/train_y_std
+        valid_x = (valid_x-train_x_mean)/train_x_std
+        valid_y = (valid_y-train_y_mean)/train_y_std
         PARAM_DIR = dataparams.DATA_DIR_PARAMETER + modelparams.MODELNAME + f'{fold}.pt'
+        with open(PARAM_DIR+'ms', 'wb') as f:
+            pickle.dump((train_x_mean, train_x_std, train_y_mean, train_y_std), f)
         model = TheModel(modelparams)
         model = model.to(model.device)
         train_loader = DataLoader(ProcessDataset(train_x, train_y, mode =  False), trainparams.BATCH_SIZE, shuffle = True)
@@ -66,7 +71,7 @@ def validate(test_loader, model, loss_func):
 
 def train(trainparams, data_loader, test_loader, model, PARAM_DIR,Norm):
     NUM_EPOCHES = trainparams.NUM_EPOCHES
-    loss_func_train = loss_func_validation = nn.L1Loss()
+    loss_func_train = loss_func_validation = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD, eps= 1e-7)
     for epoch in range(NUM_EPOCHES):
         train_losses = []
