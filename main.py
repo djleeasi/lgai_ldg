@@ -3,10 +3,11 @@ from src.mydataset import ProcessDataset
 from src.hy_params import modelhyper, datahyper, trainhyper
 from src.prepro import *
 from src.LDGlib import *
+from src.losses import SimCLR_Loss
 #import packages
 import torch
 import pickle 
-from sklearn.model_selection import KFold
+# from sklearn.model_selection import KFold
 import numpy as np
 from tqdm import tqdm
 from os.path import exists
@@ -15,39 +16,48 @@ import pickle
 import ipdb
 
 def main():
-    modelparams = modelhyper()
-    dataparams = datahyper()
-    trainparams = trainhyper()
-    foldNum = modelparams.KFOLD_NUM
-    with open(dataparams.DATA_DIR_TRAIN,'rb')as f:   
+    with open(datahyper.DATA_DIR_TRAIN,'rb')as f:
         x_data, y_data, stages = pickle.load(f)
-    #raw 데이터셋을 shuffle
-    #ipdb.set_trace()
-    x_n, x_an = x_data[0], x_data[1]
-    y_n, y_an = y_data[0], y_data[1]
-    train_list_n, valid_list_n = k_fold(x_n, y_n, foldNum)
-    train_list_an, valid_list_an = k_fold(x_an, y_an, foldNum)
+    # x_n, x_an = x_data[0], x_data[1] KFOLD할때 써라
+    # y_n, y_an = y_data[0], y_data[1]
+    # train_list_n, valid_list_n = k_fold(x_n, y_n, foldNum)
+    # train_list_an, valid_list_an = k_fold(x_an, y_an, foldNum)
 
-    for fold in range(foldNum):
-        print('FOLD', 1+fold)
-        train_x_n, train_y_n = train_list_n[fold][0], train_list_n[fold][1]
-        train_x_an, train_y_an = train_list_an[fold][0], train_list_an[fold][1]
-        valid_x = np.concatenate((
-                                    valid_list_n[fold][0], 
-                                    valid_list_an[fold][0]))
-        valid_y = np.concatenate((
-                                    valid_list_n[fold][1],
-                                    valid_list_an[fold][1]))
-        train_x_n = preXRnn_nn(train_x_n, stages)
-        train_x_an = preXRnn_nn(train_x_an, stages)
-        valid_x = preXRnn_nn(valid_x, stages)
-        PARAM_DIR = dataparams.DATA_DIR_PARAMETER + modelparams.MODELNAME + f'{fold}.pt'
-        model = TheModel(modelparams)
-        model = model.to(model.device)
-        train_loader_n = DataLoader(ProcessDataset(train_x_n, train_y_n), trainparams.BATCH_SIZE, shuffle = True)
-        train_loader_an = DataLoader(ProcessDataset(train_x_an, train_y_an), trainparams.BATCH_SIZE, shuffle = True)
-        test_loader = DataLoader(ProcessDataset(valid_x, valid_y), max(5000, valid_y.shape[0]), shuffle = True)
-        train(trainparams, train_loader_n, train_loader_an, test_loader, model, PARAM_DIR)
+    # for fold in range(foldNum):
+    #     print('FOLD', 1+fold)
+    #     train_x_n, train_y_n = train_list_n[fold][0], train_list_n[fold][1]
+    #     train_x_an, train_y_an = train_list_an[fold][0], train_list_an[fold][1]
+    #     valid_x = np.concatenate((
+    #                                 valid_list_n[fold][0], 
+    #                                 valid_list_an[fold][0]))
+    #     valid_y = np.concatenate((
+    #                                 valid_list_n[fold][1],
+    #                                 valid_list_an[fold][1]))
+    #     train_x_n = preXRnn_nn(train_x_n, stages)
+    #     train_x_an = preXRnn_nn(train_x_an, stages)
+    #     valid_x = preXRnn_nn(valid_x, stages)
+    x_data, y_data = shufflearrays([x_data, y_data], datahyper.SEED)
+    train_len = round(len(x_data)*datahyper.TRAINRATIO)
+    train_x = x_data[:train_len]
+    valid_x = x_data[train_len:]
+    train_y = y_data[:train_len]
+    valid_y = y_data[train_len:]
+    train_x_std = np.std(train_x, axis = 0)+1e-9
+    train_y_std = np.std(train_y, axis = 0)+1e-9
+    train_x_mean = np.mean(train_x, axis = 0)
+    train_y_mean = np.mean(train_y, axis = 0)
+    train_x = (train_x-train_x_mean)/train_x_std
+    train_y = (train_y-train_y_mean)/train_y_std
+    valid_x = (valid_x-train_x_mean)/train_x_std
+    valid_y = (valid_y-train_y_mean)/train_y_std
+    PARAM_DIR = datahyper.DATA_DIR_PARAMETER + modelhyper.MODELNAME + '.pt'
+    with open(PARAM_DIR+'k', 'wb') as f:
+        pickle.dump((train_x_mean, train_x_std, train_y_mean, train_y_std), f)
+    model = TheModel(modelhyper)
+    model = model.to(modelhyper.DEVICE)
+    train_loader = DataLoader(ProcessDataset(train_x, train_y), trainhyper.BATCH_SIZE, shuffle = True, drop_last= True)
+    test_loader = DataLoader(ProcessDataset(valid_x, valid_y), max(500, valid_y.shape[0]), shuffle = False)
+    train(trainhyper, train_loader, test_loader, model, PARAM_DIR)
 
 def validate(test_loader, model, loss_func):
     test_losses = []
@@ -55,42 +65,53 @@ def validate(test_loader, model, loss_func):
     test_loss = 0
     with torch.no_grad():
         for i, (inputdata, target) in enumerate(tqdm(test_loader)):
-            target = target.to(device=model.device) 
-            output = model(inputdata).to(device=model.device)
+            inputdata = inputdata.unsqueeze(-1).to(modelhyper.DEVICE)
+            target = target.to(device=modelhyper.DEVICE) 
+            output, _ = model(inputdata)
             loss = loss_func(output, target)
             test_losses.append(loss.item())
         test_loss = np.mean(test_losses)
     model.train()
     return test_loss
 
-def train(trainparams, data_loader_n, data_loader_an, test_loader, model, PARAM_DIR):
-    NUM_EPOCHES = trainparams.NUM_EPOCHES
+def train(trainhyper, data_loader, test_loader, model, PARAM_DIR):
+    NUM_EPOCHES = trainhyper.NUM_EPOCHES
+    minloss = float('inf')
     loss_func_train = nn.MSELoss()
+    loss_func_contrastive = SimCLR_Loss(trainhyper.BATCH_SIZE, trainhyper.TEMPERATURE)
     loss_func_validation = nn.MSELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=trainhyper.LR, weight_decay = trainhyper.WD)
     for epoch in range(NUM_EPOCHES):
-        train_losses = []
-        total=0
+        train_losses = list()
+        contrastive_losses = list()
         print(f"[Epoch {epoch+1} / {NUM_EPOCHES}]")
         model.train()
-        for i, (inputdata_n, target_n) in enumerate(tqdm(data_loader_n)):
-            for i2, (inputdata_an, target_an) in enumerate(data_loader_an):
-                inputdata = torch.cat((inputdata_n, inputdata_an))
-                target = torch.cat((target_n, target_an))
-                optimizer.zero_grad()
-                output = model(inputdata).to(device=model.device)
-                loss = loss_func_train(output, target)
-                loss.backward()
-                optimizer.step()
-                train_losses.append(loss.item())
+        for i, (inputdata, target) in enumerate(tqdm(data_loader)):
+            inputdata = inputdata.unsqueeze(-1).to(modelhyper.DEVICE)
+            target = target.to(modelhyper.DEVICE)
+            optimizer.zero_grad()
+            output1, representation1 = model(inputdata)
+            output2, representation2 = model(inputdata)
+            loss1 = loss_func_train(output1, target)
+            loss2 = loss_func_train(output2, target)
+            contrastive_loss = loss_func_contrastive(representation1, representation2)
+            ratio = 0.5
+            preloss = ratio*(loss1+loss2) 
+            w_closs = (1-ratio)*contrastive_loss
+            loss = preloss + w_closs
+            loss.backward()
+            optimizer.step()
+            train_losses.append(preloss.item())
+            contrastive_losses.append(w_closs.item())
         epoch_train_loss = np.mean(train_losses)
+        epoch_contrastive_loss = np.mean(contrastive_losses)
         validation_loss = validate(test_loader, model, loss_func_validation)
         print(f'Epoch {epoch+1}') 
-        print(f'train_loss : {epoch_train_loss}, validation_loss: {validation_loss}')
+        print(f'train prediction_loss : {epoch_train_loss}, train contrastive loss:{epoch_contrastive_loss}, validation_loss: {validation_loss}')
         # Save Model
-        if model.minloss > validation_loss:
-            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
-            model.minloss = validation_loss
-            torch.save(model.state_dict(), PARAM_DIR)
+        # if minloss > validation_loss:
+        #     print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(minloss, validation_loss))
+        #     minloss = validation_loss
+        torch.save(model.state_dict(), PARAM_DIR)
 if __name__ == '__main__':
     main()

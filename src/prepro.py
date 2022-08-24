@@ -123,7 +123,7 @@ def minMaxNormalization(array):
     return array, max, min #TODO: max가 먼저 오는 이유?
 
 #----------------------loss functions from now--------------------
-def wRMSE(yhat, y):
+def wRMSE(y, yhat):
     """
         Daycon에서 사용하는 것과 같게 가중치를 먹인 mseloss. 완전1대1 대응하지는 않음.
     """

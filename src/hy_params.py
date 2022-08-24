@@ -1,32 +1,31 @@
 import torch
 #model specific imports
 class modelhyper():
-    def __init__(self):
-        self.MODELNAME = "sh_at1_"
-        self.HIDDEN_SIZE = 512
-        self.ATTENTION_SIZE = 1
-        self.VECTOR_SIZE = 7
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.DROPP = 0.5
-        self.OUTPUT_CLASS = 14
-        self.KFOLD_NUM = 5
-        self.Norm = False
+    MODELNAME = 'SimCLD'
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    E_SEQLENGTH = 52
+    E_INPUTSIZE = 24#무조건 E_NHEAD 로 나눠져야 함
+    E_DROPOUT = 0.1
+    E_NHEAD = 4
+    E_DIM_FEEDFORWARD = 256
+    E_LAYER_NUM = 10
+    L_DROPOUT = 0.51
+
+
 
 class datahyper():
-    def __init__(self):
-        #ratio of training compared to total dataset
-        self.TRAINRATIO = 0.8
-        self.DATA_DIR_TRAIN = './data/preprocessed/ntrain.pickle'
-        self.DATA_DIR_TEST = './data/preprocessed/test.pickle'
-        self.DATA_DIR_MM = './parameters/MinMax/'
-        self.DATA_DIR_SUBMISSION = './data/rawdata/sample_submission.csv'
-        self.DATA_DIR_RESULT = './result/'
-        self.DATA_DIR_PARAMETER = './parameters/'
-        self.seed = 4231
+    TRAINRATIO = 0.8
+    DATA_DIR_TRAIN = './data/preprocessed/train.pickle'
+    DATA_DIR_TEST = './data/preprocessed/test.pickle'
+    DATA_DIR_MM = './parameters/MinMax/'
+    DATA_DIR_SUBMISSION = './data/rawdata/sample_submission.csv'
+    DATA_DIR_RESULT = './result/'
+    DATA_DIR_PARAMETER = './parameters/'
+    SEED = 4242
 
 class trainhyper():
-    def __init__(self):
-        self.LR = 0.001
-        self.WD = 0
-        self.NUM_EPOCHES = 5
-        self.BATCH_SIZE = 320 #작은 batchsize가 좋다.
+    LR = 5e-5
+    WD = 0.3
+    TEMPERATURE = 0.05
+    NUM_EPOCHES = 1000
+    BATCH_SIZE = 64# 작은 batchsize가 좋다.
