@@ -31,10 +31,10 @@ def result():
         FOLDER_DIR = dataparams.DATA_DIR_PARAMETER
         PARAM_DIR = FOLDER_DIR + modelparams.MODELNAME + f'{fold}.pt'
         testset = copy.deepcopy(testset_raw)
-        MinMax_path = dataparams.DATA_DIR_MM + modelparams.MODELNAME +f'{fold}.pickle'
+        MinMax_path = PARAM_DIR + 'ms'
         with open(MinMax_path,'rb')as f:
-            x_min, x_max, y_min, y_max = pickle.load(f)
-        testset = prevYRnn(testset, x_min, x_max)
+            x_mean, x_std, y_mean, y_std = pickle.load(f)
+        testset = (testset-x_mean)/x_std
         test_loader = DataLoader(TestDataset(testset, mode=False), 2048, shuffle = False)
         model = TheModel(modelparams)
         if exists(PARAM_DIR):
@@ -44,7 +44,7 @@ def result():
             raise Exception("parameter file does not exist")
         model = model.to(model.device)
         test_output = final_test(test_loader, model).to(device = 'cpu').numpy()
-        test_output = test_output*(y_max-y_min)+y_min
+        test_output = test_output*y_std+y_mean
         test_outputs += test_output
 
     test_result = test_outputs/foldNum
@@ -59,7 +59,7 @@ def final_test(test_loader, model):
     model.eval()
     with torch.no_grad():
         for i, inputdata in enumerate(tqdm(test_loader)):
-            output = model(inputdata).to(device=model.device)
+            output, _ = model(inputdata)
             total += inputdata.size(0)
             if test_outputs == None:
                 test_outputs = output

@@ -28,7 +28,7 @@ def main():
     x_data = datas.iloc[:, :50].values
     y_data = datas.iloc[:, 50:].values
     shuffle_idx = np.arange(x_data.shape[0])
-    np.random.shuffle(shuffle_idx)#TODO: 좋은 결과를 복원할 수 있게 seed 저장방법 찾기 IDEA: numpy의 randomGenerator를 random seed 로 initialize
+    np.random.shuffle(shuffle_idx)
     x_data = x_data[shuffle_idx,:]
     y_data = y_data[shuffle_idx,:]
     train_list, valid_list = k_fold(x_data, y_data, foldNum)
@@ -41,6 +41,11 @@ def main():
         train_y_std = np.std(train_y, axis = 0)+1e-20
         train_x_mean = np.mean(train_x, axis = 0)
         train_y_mean = np.mean(train_y, axis = 0)
+
+        # train_y_mean *= 0
+        # train_y_std *= 0
+        # train_y_std += 1# Norm 안함
+
         train_x = (train_x-train_x_mean)/train_x_std
         train_y = (train_y-train_y_mean)/train_y_std
         valid_x = (valid_x-train_x_mean)/train_x_std
@@ -50,9 +55,9 @@ def main():
             pickle.dump((train_x_mean, train_x_std, train_y_mean, train_y_std), f)
         model = TheModel(modelparams)
         model = model.to(model.device)
-        train_loader = DataLoader(ProcessDataset(train_x, train_y, mode =  False), trainparams.BATCH_SIZE, shuffle = True)
+        train_loader = DataLoader(ProcessDataset(train_x, train_y, mode =  False), trainparams.BATCH_SIZE, shuffle = True, drop_last= True)
         test_loader = DataLoader(ProcessDataset(valid_x, valid_y, mode = False), 2048, shuffle = True)
-        train(trainparams, train_loader,test_loader, model, PARAM_DIR, modelparams.Norm)
+        train(trainparams, train_loader,test_loader, model, PARAM_DIR, (train_y_mean, train_y_std))
 
 def validate(test_loader, model, loss_func):
     test_losses = []
@@ -61,40 +66,48 @@ def validate(test_loader, model, loss_func):
     test_loss = 0
     with torch.no_grad():
         for i, (inputdata, target) in enumerate(tqdm(test_loader)):
-            target = target.to(device=model.device) 
-            output = model(inputdata).to(device=model.device)
+            target = target.to(device=model.device)
+            output, _ = model(inputdata)
             loss = loss_func(output, target)
             test_losses.append(loss.item())
         test_loss = np.mean(test_losses)
     model.train()
     return test_loss
 
-def train(trainparams, data_loader, test_loader, model, PARAM_DIR,Norm):
+def train(trainparams, data_loader, test_loader, model, PARAM_DIR, stdmeans):
+    
     NUM_EPOCHES = trainparams.NUM_EPOCHES
-    loss_func_train = loss_func_validation = nn.MSELoss()
+
+    loss_func_train = loss_func_validation = customloss(data_loader.dataset.Ys, stdmeans)
+    loss_func_contrastive = SimCLR_Loss(trainparams.BATCH_SIZE, trainparams.TEMPERATURE)
     optimizer = torch.optim.Adam(model.parameters(), lr=trainparams.LR, weight_decay = trainparams.WD, eps= 1e-7)
     for epoch in range(NUM_EPOCHES):
         train_losses = []
-        total=0
+        contrastive_losses = []
         print(f"[Epoch {epoch+1} / {NUM_EPOCHES}]")
         model.train()
         for i, (inputdata, target) in enumerate(tqdm(data_loader)):
-            target = target.to(device=model.device)        
+            target = target.to(device=model.device)
+            inputdata = inputdata.to(model.device)     
             optimizer.zero_grad()
-            output = model(inputdata).to(device=model.device)
-            loss = loss_func_train(output, target)
+            output1, representation1 = model(inputdata)
+            output2, representation2 = model(inputdata)
+            loss1 = loss_func_train(output1, target)
+            loss2 = loss_func_train(output2, target)
+            contrastive_loss = loss_func_contrastive(representation1, representation2)
+            ratio = 0.5
+            preloss = ratio*(loss1+loss2) 
+            w_closs = (1-ratio)*contrastive_loss
+            loss = preloss + w_closs
             loss.backward()
             optimizer.step()
-            train_losses.append(loss.item())
+            train_losses.append(preloss.item())
+            contrastive_losses.append(w_closs.item())
         epoch_train_loss = np.mean(train_losses)
-        validation_loss = validate(test_loader,model, loss_func_validation)
+        epoch_contrastive_loss = np.mean(contrastive_losses)
+        validation_loss = validate(test_loader, model, loss_func_validation)
         print(f'Epoch {epoch+1}') 
-        print(f'train_loss : {epoch_train_loss}, validation_loss: {validation_loss}')
-
-        # Save Model
-        if model.minloss > validation_loss:
-            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(model.minloss, validation_loss))
-            model.minloss = validation_loss
-            torch.save(model.state_dict(), PARAM_DIR)
+        print(f'train prediction_loss : {epoch_train_loss}, train contrastive loss:{epoch_contrastive_loss}, validation_loss: {validation_loss}')
+        torch.save(model.state_dict(), PARAM_DIR)
 if __name__ == '__main__':
     main()
