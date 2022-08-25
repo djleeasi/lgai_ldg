@@ -42,8 +42,8 @@ def main():
     valid_x = x_data[train_len:]
     train_y = y_data[:train_len]
     valid_y = y_data[train_len:]
-    train_x_std = np.std(train_x, axis = 0)+1e-9
-    train_y_std = np.std(train_y, axis = 0)+1e-9
+    train_x_std = np.std(train_x, axis = 0)+1e-6
+    train_y_std = np.std(train_y, axis = 0)+1e-6
     train_x_mean = np.mean(train_x, axis = 0)
     train_y_mean = np.mean(train_y, axis = 0)
     train_x = (train_x-train_x_mean)/train_x_std
@@ -57,7 +57,7 @@ def main():
     model = model.to(modelhyper.DEVICE)
     train_loader = DataLoader(ProcessDataset(train_x, train_y), trainhyper.BATCH_SIZE, shuffle = True, drop_last= True)
     test_loader = DataLoader(ProcessDataset(valid_x, valid_y), max(500, valid_y.shape[0]), shuffle = False)
-    train(trainhyper, train_loader, test_loader, model, PARAM_DIR)
+    train(trainhyper, train_loader, test_loader, model, PARAM_DIR, (train_y_mean, train_y_std))
 
 def validate(test_loader, model, loss_func):
     test_losses = []
@@ -74,12 +74,12 @@ def validate(test_loader, model, loss_func):
     model.train()
     return test_loss
 
-def train(trainhyper, data_loader, test_loader, model, PARAM_DIR):
+def train(trainhyper, data_loader, test_loader, model, PARAM_DIR, stdmeans):
     NUM_EPOCHES = trainhyper.NUM_EPOCHES
     minloss = float('inf')
-    loss_func_train = nn.MSELoss()
+    loss_func_train = customloss(data_loader.dataset.Ys, stdmeans)
     loss_func_contrastive = SimCLR_Loss(trainhyper.BATCH_SIZE, trainhyper.TEMPERATURE)
-    loss_func_validation = nn.MSELoss()
+    loss_func_validation = customloss(data_loader.dataset.Ys, stdmeans)
     optimizer = torch.optim.AdamW(model.parameters(), lr=trainhyper.LR, weight_decay = trainhyper.WD)
     for epoch in range(NUM_EPOCHES):
         train_losses = list()
@@ -108,10 +108,9 @@ def train(trainhyper, data_loader, test_loader, model, PARAM_DIR):
         validation_loss = validate(test_loader, model, loss_func_validation)
         print(f'Epoch {epoch+1}') 
         print(f'train prediction_loss : {epoch_train_loss}, train contrastive loss:{epoch_contrastive_loss}, validation_loss: {validation_loss}')
-        # Save Model
-        # if minloss > validation_loss:
-        #     print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(minloss, validation_loss))
-        #     minloss = validation_loss
+        if minloss > validation_loss:
+            print('validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(minloss, validation_loss))
+            minloss = validation_loss
         torch.save(model.state_dict(), PARAM_DIR)
 if __name__ == '__main__':
     main()

@@ -138,15 +138,15 @@ class customloss():
         #운영진측에서 밝힌대로 loss 를 계산해야 하기 때문에, 만약 data가 nomalized 된 상태일 경우 unnorm한다. \n
         #참고: https://dacon.io/competitions/official/235927/overview/rules
         """
-        modelparams = modelhyper()
+        modelparams = modelhyper
         if minmaxs == None:
             self.isnorm = False #주어진 데이터가 nomalized 인지 여부
         else:
             self.isnorm = True
-        yhattensor = torch.tensor(yhatarray, requires_grad=False).to(device = modelparams.device)
+        yhattensor = torch.tensor(yhatarray, requires_grad=False).to( modelparams.DEVICE)
         if self.isnorm == True:
-            self.min = torch.tensor(minmaxs[0][0]).to(device = modelparams.device)
-            self.max = torch.tensor(minmaxs[0][1]).to(device = modelparams.device)
+            self.min = torch.tensor(minmaxs[0][0]).to( modelparams.DEVICE)#mean
+            self.max = torch.tensor(minmaxs[0][1]).to( modelparams.DEVICE)#std
             yhattensor = self.unnormalize(yhattensor)
         #이 시점에서 모든 data는 원복됨
         self.yhatmean = torch.mean(torch.abs(yhattensor),0)
@@ -161,7 +161,7 @@ class customloss():
         nrmse = torch.div(rmse,self.yhatmean)
         return 1.2*torch.sum(nrmse[:8])+1*torch.sum(nrmse[8:])
     def unnormalize(self,tensor):
-        return tensor*(self.max-self.min)+self.min
+        return tensor*(self.max)+self.min
 
 class customloss_entropy(customloss):#useable on train only
     """
@@ -176,8 +176,8 @@ class customloss_entropy(customloss):#useable on train only
         else:
             raw_mse_torch = self.MSELoss(yhat, y)
         label_probs = self.labeldist.pdf(yhat.detach().cpu().numpy())
-        label_probs = torch.tensor(label_probs, requires_grad=False).to(device = self.yhatmean.device)
-        label_entropy = -torch.log2(label_probs+1e-9)+1
+        label_probs = torch.tensor(label_probs, requires_grad=False).to( self.yhatmean.device)
+        label_entropy = -torch.log2(label_probs+1e-6)+1
         entropy_mse_torch = raw_mse_torch*label_entropy
         torchmse = torch.mean(entropy_mse_torch,0)
         rmse = torch.sqrt(torchmse)

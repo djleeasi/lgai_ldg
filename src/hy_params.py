@@ -4,11 +4,11 @@ class modelhyper():
     MODELNAME = 'SimCLD'
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     E_SEQLENGTH = 52
-    E_INPUTSIZE = 24#무조건 E_NHEAD 로 나눠져야 함
-    E_DROPOUT = 0.1
-    E_NHEAD = 4
-    E_DIM_FEEDFORWARD = 256
-    E_LAYER_NUM = 10
+    E_INPUTSIZE = 6#무조건 E_NHEAD 로 나눠져야 함
+    E_DROPOUT = 0.2
+    E_NHEAD = 2
+    E_DIM_FEEDFORWARD = 64
+    E_LAYER_NUM = 1
     L_DROPOUT = 0.51
 
 
@@ -21,7 +21,7 @@ class datahyper():
     DATA_DIR_SUBMISSION = './data/rawdata/sample_submission.csv'
     DATA_DIR_RESULT = './result/'
     DATA_DIR_PARAMETER = './parameters/'
-    SEED = 4242
+    SEED = 435553
 
 class trainhyper():
     LR = 5e-5
