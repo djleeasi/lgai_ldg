@@ -4,3 +4,5 @@ result/*.csv
 *.pyc
 *.out
 parameters/MinMax/*.pickle
+*.ptk
+*.ptms
